@@ -72,8 +72,8 @@ Source5: postfix-chroot-update
 
 %define pflogsumm_ver 1.1.5
 
-# Postfix Log Entry Summarizer: http://jimsun.linxnet.com/postfix_contrib.html
-Source53: http://jimsun.linxnet.com/downloads/pflogsumm-%{pflogsumm_ver}.tar.gz
+# Postfix Log Entry Summarizer: https://jimsun.linxnet.com/postfix_contrib.html
+Source53: https://jimsun.linxnet.com/downloads/pflogsumm-%{pflogsumm_ver}.tar.gz
 
 # Sources >= 100 are config files
 
