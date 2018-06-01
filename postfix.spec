@@ -45,7 +45,7 @@
 Name: postfix
 Summary: Postfix Mail Transport Agent
 Version: 3.2.5
-Release: 5%{?dist}
+Release: 6%{?dist}
 Epoch: 2
 Group: System Environment/Daemons
 URL: http://www.postfix.org
@@ -97,13 +97,13 @@ Patch10: pflogsumm-1.1.5-ipv6-warnings-fix.patch
 
 # Determine the different packages required for building postfix
 BuildRequires: libdb-devel, perl-generators, pkgconfig, zlib-devel
-BuildRequires: systemd-units, libicu-devel, libnsl2-devel
+BuildRequires: systemd-units, libicu-devel
 BuildRequires: gcc
 
 %{?with_ldap:BuildRequires: openldap-devel}
 %{?with_sasl:BuildRequires: cyrus-sasl-devel}
 %{?with_pcre:BuildRequires: pcre-devel}
-%{?with_mysql:BuildRequires: mariadb-connector-c-devel}
+%{?with_mysql:BuildRequires: mysql-devel}
 %{?with_pgsql:BuildRequires: postgresql-devel}
 %{?with_sqlite:BuildRequires: sqlite-devel}
 %{?with_cdb:BuildRequires: tinycdb-devel}
@@ -233,9 +233,8 @@ for f in README_FILES/TLS_{LEGACY_,}README TLS_ACKNOWLEDGEMENTS; do
 done
 
 %build
+CCARGS=-fPIC
 unset AUXLIBS AUXLIBS_LDAP AUXLIBS_PCRE AUXLIBS_MYSQL AUXLIBS_PGSQL AUXLIBS_SQLITE AUXLIBS_CDB
-CCARGS="-fPIC -I%{_includedir}/nsl"
-AUXLIBS="-L%{_libdir}/nsl -lnsl"
 
 %ifarch s390 s390x ppc
 CCARGS="${CCARGS} -fsigned-char"
@@ -252,7 +251,7 @@ CCARGS="${CCARGS} -fsigned-char"
 %endif
 %if %{with mysql}
   CCARGS="${CCARGS} -DHAS_MYSQL -I%{_includedir}/mysql"
-  AUXLIBS_MYSQL="-L%{_libdir}/mariadb -lmysqlclient -lm"
+  AUXLIBS_MYSQL="-L%{_libdir}/mysql -lmysqlclient -lm"
 %endif
 %if %{with pgsql}
   CCARGS="${CCARGS} -DHAS_PGSQL -I%{_includedir}/pgsql"
@@ -737,6 +736,9 @@ fi
 %endif
 
 %changelog
+* Fri Jun 1 2018 Massimiliano Torromeo <massimiliano.torromeo@gmail.com> - 2:3.2.5-6
+- Reworked for Epel 7 by reverting to glibc's nsl and mysql-devel
+
 * Mon Apr 30 2018 Pete Walter <pwalter@fedoraproject.org> - 2:3.2.5-5
 - Rebuild for ICU 61.1
 
