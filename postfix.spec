@@ -70,10 +70,11 @@ Source5: postfix-chroot-update
 
 # Sources 50-99 are upstream [patch] contributions
 
-%define pflogsumm_ver 1.1.5
+# equivalent to version 1.1.5
+%define pflogsumm_ver df23d8c12defbbcda8a1ffe7b292877b6bee47f3
 
-# Postfix Log Entry Summarizer: https://jimsun.linxnet.com/postfix_contrib.html
-Source53: https://jimsun.linxnet.com/downloads/pflogsumm-%{pflogsumm_ver}.tar.gz
+# Postfix Log Entry Summarizer: http://jimsun.linxnet.com/postfix_contrib.html
+Source53: https://github.com/KTamas/pflogsumm/archive/%{pflogsumm_ver}/pflogsumm-%{pflogsumm_ver}.tar.gz
 
 # Sources >= 100 are config files
 
@@ -1325,7 +1326,7 @@ fi
 
 * Fri Mar 11 2005 Thomas Woerner <twoerner@redhat.com> 2:2.2.0-1
 - new version 2.2.0
-- cleanup of spec file: removed external TLS and IPV6 patches, removed 
+- cleanup of spec file: removed external TLS and IPV6 patches, removed
   smtp_sasl_proto patch
 - dropped samples directory till there are good examples again (was TLS and
   IPV6)
@@ -1418,10 +1419,10 @@ fi
   for RHEL3, we'll branch and set set sasl to v1 and turn off ipv6
 
 * Tue Feb 17 2004 John Dennis <jdennis@porkchop.devel.redhat.com>
-- revert back to v1 of sasl because LDAP still links against v1 and we can't 
+- revert back to v1 of sasl because LDAP still links against v1 and we can't
 - bump revision for build
   have two different versions of the sasl library loaded in one load image at
-  the same time. How is that possible? Because the sasl libraries have different 
+  the same time. How is that possible? Because the sasl libraries have different
   names (libsasl.so & libsasl2.so) but export the same symbols :-(
   Fixes bugs 115249 and 111767
 
@@ -1450,7 +1451,7 @@ fi
 
 * Sat Dec 13 2003 Jeff Johnson <jbj@jbj.org> 2:2.0.16-2
 - rebuild against db-4.2.52.
- 
+
 * Mon Nov 17 2003 John Dennis <jdennis@finch.boston.redhat.com> 2:2.0.16-1
 - sync up with current upstream release, 2.0.16, fixes bug #108960
 
@@ -1615,4 +1616,3 @@ fi
   - Remove some hacks to support building on all sorts of distributions at
     the cost of specfile readability
   - Remove postdrop group on deletion
-
