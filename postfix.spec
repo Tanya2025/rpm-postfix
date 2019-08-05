@@ -37,6 +37,9 @@
 %define postfix_sample_dir	%{postfix_doc_dir}/samples
 %define postfix_readme_dir	%{postfix_doc_dir}/README_FILES
 
+%global sslcert %{_sysconfdir}/pki/tls/certs/postfix.pem
+%global sslkey  %{_sysconfdir}/pki/tls/private/postfix.key
+
 # Filter private libraries
 %global _privatelibs libpostfix-.+\.so.*
 %global __provides_exclude ^(%{_privatelibs})$
@@ -44,21 +47,21 @@
 
 Name: postfix
 Summary: Postfix Mail Transport Agent
-Version: 3.2.5
-Release: 6%{?dist}
+Version: 3.4.6
+Release: 2%{?dist}
 Epoch: 2
-Group: System Environment/Daemons
 URL: http://www.postfix.org
-License: IBM and GPLv2+
+License: (IBM and GPLv2+) or (EPL-2.0 and GPLv2+)
 Requires(post): systemd systemd-sysv
 Requires(post): %{_sbindir}/alternatives
+Requires(post): %{_bindir}/openssl
 Requires(pre): %{_sbindir}/groupadd
 Requires(pre): %{_sbindir}/useradd
 Requires(preun): %{_sbindir}/alternatives
 Requires(preun): systemd
 Requires(postun): systemd
 # Required by /usr/libexec/postfix/postfix-script
-Requires: diffutils
+Requires: diffutils, findutils
 Provides: MTA smtpd smtpdaemon server(smtp)
 
 Source0: https://archive.mgm51.com/mirrors/postfix-source/official/%{name}-%{version}.tar.gz
@@ -83,13 +86,15 @@ Source101: postfix-pam.conf
 
 # Patches
 
-Patch1: postfix-3.2.0-config.patch
-Patch2: postfix-3.1.0-files.patch
-Patch3: postfix-3.1.0-alternatives.patch
-Patch4: postfix-3.2.0-large-fs.patch
+Patch1: postfix-3.4.0-config.patch
+Patch2: postfix-3.4.0-files.patch
+Patch3: postfix-3.3.3-alternatives.patch
+Patch4: postfix-3.4.0-large-fs.patch
 Patch9: pflogsumm-1.1.5-datecalc.patch
 # rhbz#1384871, sent upstream
 Patch10: pflogsumm-1.1.5-ipv6-warnings-fix.patch
+Patch11: postfix-3.4.4-chroot-example-fix.patch
+Patch12: postfix-3.4.4-res-macros-fix.patch
 
 # Optional patches - set the appropriate environment variables to include
 #                    them when building the package/spec file
@@ -98,7 +103,7 @@ Patch10: pflogsumm-1.1.5-ipv6-warnings-fix.patch
 # Determine the different packages required for building postfix
 BuildRequires: libdb-devel, perl-generators, pkgconfig, zlib-devel
 BuildRequires: systemd-units, libicu-devel
-BuildRequires: gcc
+BuildRequires: gcc, m4, findutils
 
 %{?with_ldap:BuildRequires: openldap-devel}
 %{?with_sasl:BuildRequires: cyrus-sasl-devel}
@@ -115,7 +120,6 @@ Postfix is a Mail Transport Agent (MTA).
 %if 0%{?fedora} < 23
 %package sysvinit
 Summary: SysV initscript for postfix
-Group: System Environment/Daemons
 BuildArch: noarch
 Requires: %{name} = %{epoch}:%{version}-%{release}
 Requires(preun): chkconfig
@@ -127,7 +131,6 @@ This package contains the SysV initscript.
 
 %package perl-scripts
 Summary: Postfix utilities written in perl
-Group: Applications/System
 Requires: %{name} = %{epoch}:%{version}-%{release}
 # perl-scripts introduced in 2:2.5.5-2
 Obsoletes: postfix < 2:2.5.5-2
@@ -226,6 +229,8 @@ pushd pflogsumm-%{pflogsumm_commit}
 %patch10 -p1 -b .ipv6-warnings-fix
 popd
 %endif
+%patch11 -p1 -b .chroot-example-fix
+%patch12 -p1 -b .res-macros-fix
 
 for f in README_FILES/TLS_{LEGACY_,}README TLS_ACKNOWLEDGEMENTS; do
 	iconv -f iso8859-1 -t utf8 -o ${f}{_,} &&
@@ -233,8 +238,8 @@ for f in README_FILES/TLS_{LEGACY_,}README TLS_ACKNOWLEDGEMENTS; do
 done
 
 %build
-CCARGS=-fPIC
 unset AUXLIBS AUXLIBS_LDAP AUXLIBS_PCRE AUXLIBS_MYSQL AUXLIBS_PGSQL AUXLIBS_SQLITE AUXLIBS_CDB
+CCARGS="-fPIC"
 
 %ifarch s390 s390x ppc
 CCARGS="${CCARGS} -fsigned-char"
@@ -275,7 +280,7 @@ CCARGS="${CCARGS} -fsigned-char"
     CCARGS="${CCARGS} -DUSE_TLS `pkg-config --cflags openssl`"
     AUXLIBS="${AUXLIBS} `pkg-config --libs openssl`"
   else
-    CCARGS="${CCARGS} -DUSE_TLS -I/usr/include/openssl"
+    CCARGS="${CCARGS} -DUSE_TLS -I%{_includedir}/openssl"
     AUXLIBS="${AUXLIBS} -lssl -lcrypto"
   fi
 %endif
@@ -403,8 +408,8 @@ install -c auxiliary/qshape/qshape.pl $RPM_BUILD_ROOT%{postfix_command_dir}/qsha
 rm -f $RPM_BUILD_ROOT%{postfix_config_dir}/aliases
 
 # create /usr/lib/sendmail
-mkdir -p $RPM_BUILD_ROOT/usr/lib
-pushd $RPM_BUILD_ROOT/usr/lib
+mkdir -p $RPM_BUILD_ROOT%{_prefix}/lib
+pushd $RPM_BUILD_ROOT%{_prefix}/lib
 ln -sf ../sbin/sendmail.postfix .
 popd
 
@@ -413,7 +418,7 @@ touch $RPM_BUILD_ROOT%{_var}/lib/misc/postfix.aliasesdb-stamp
 
 # prepare alternatives ghosts
 for i in %{postfix_command_dir}/sendmail %{_bindir}/{mailq,newaliases,rmail} \
-	%{_sysconfdir}/pam.d/smtp /usr/lib/sendmail \
+	%{_sysconfdir}/pam.d/smtp %{_prefix}/lib/sendmail \
 	%{_mandir}/{man1/{mailq.1,newaliases.1},man5/aliases.5,man8/{sendmail.8,smtpd.8}}
 do
 	touch $RPM_BUILD_ROOT$i
@@ -466,7 +471,7 @@ ALTERNATIVES_DOCS=""
 	--slave %{_bindir}/newaliases mta-newaliases %{_bindir}/newaliases.postfix \
 	--slave %{_sysconfdir}/pam.d/smtp mta-pam %{_sysconfdir}/pam.d/smtp.postfix \
 	--slave %{_bindir}/rmail mta-rmail %{_bindir}/rmail.postfix \
-	--slave /usr/lib/sendmail mta-sendmail /usr/lib/sendmail.postfix \
+	--slave %{_prefix}/lib/sendmail mta-sendmail %{_prefix}/lib/sendmail.postfix \
 	$ALTERNATIVES_DOCS \
 	--initscript postfix
 
@@ -477,6 +482,23 @@ if [ -f %{_libdir}/sasl2/smtpd.conf ]; then
 	/sbin/restorecon %{sasl_config_dir}/smtpd.conf 2> /dev/null
 fi
 %endif
+
+# Create self-signed SSL certificate
+if [ ! -f %{sslkey} ]; then
+  umask 077
+  %{_bindir}/openssl genrsa 4096 > %{sslkey} 2> /dev/null
+fi
+
+if [ ! -f %{sslcert} ]; then
+  FQDN=`hostname`
+  if [ "x${FQDN}" = "x" ]; then
+    FQDN=localhost.localdomain
+  fi
+
+  %{_bindir}/openssl req -new -key %{sslkey} -x509 -sha256 -days 365 -set_serial $RANDOM -out %{sslcert} \
+    -subj "/C=--/ST=SomeState/L=SomeCity/O=SomeOrganization/OU=SomeOrganizationalUnit/CN=${FQDN}/emailAddress=root@${FQDN}"
+  chmod 644 %{sslcert}
+fi
 
 exit 0
 
@@ -641,13 +663,14 @@ fi
 %attr(0755, root, root) %{postfix_daemon_dir}/postfix-wrapper
 %attr(0755, root, root) %{postfix_daemon_dir}/postmulti-script
 %attr(0755, root, root) %{postfix_daemon_dir}/postscreen
+%attr(0755, root, root) %{postfix_daemon_dir}/postlogd
 %attr(0755, root, root) %{postfix_daemon_dir}/proxymap
 %attr(0755, root, root) %{postfix_shlib_dir}/libpostfix-*.so
 %{_bindir}/mailq.postfix
 %{_bindir}/newaliases.postfix
 %attr(0755, root, root) %{_bindir}/rmail.postfix
 %attr(0755, root, root) %{_sbindir}/sendmail.postfix
-/usr/lib/sendmail.postfix
+%{_prefix}/lib/sendmail.postfix
 
 %ghost %{_sysconfdir}/pam.d/smtp
 
@@ -661,18 +684,16 @@ fi
 %ghost %attr(0755, root, root) %{_bindir}/newaliases
 %ghost %attr(0755, root, root) %{_bindir}/rmail
 %ghost %attr(0755, root, root) %{_sbindir}/sendmail
-%ghost %attr(0755, root, root) /usr/lib/sendmail
+%ghost %attr(0755, root, root) %{_prefix}/lib/sendmail
 
 %ghost %attr(0644, root, root) %{_var}/lib/misc/postfix.aliasesdb-stamp
 
 %if 0%{?fedora} < 23
 %files sysvinit
-%defattr(-, root, root, -)
 %{_initrddir}/postfix
 %endif
 
 %files perl-scripts
-%defattr(-, root, root, -)
 %attr(0755, root, root) %{postfix_command_dir}/qshape
 %attr(0644, root, root) %{_mandir}/man1/qshape*
 %if %{with pflogsumm}
@@ -736,6 +757,76 @@ fi
 %endif
 
 %changelog
+* Fri Jul 26 2019 Fedora Release Engineering <releng@fedoraproject.org> - 2:3.4.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
+
+* Mon Jul  8 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.6-1
+- New version
+  Resolves: rhbz#1726462
+
+* Fri May  3 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.4-4
+- Fixed FTBFS with new glibc due to dropped RES macros
+
+* Fri May  3 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.4-3
+- Added findutils as explicit requirement
+  Resolves: rhbz#1629057
+
+* Tue Mar 26 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.4-2
+- Fixed example chroot-update script
+  Resolves: rhbz#1398910
+
+* Fri Mar 15 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.4-1
+- New version
+  Resolves: rhbz#1689029
+
+* Mon Mar 11 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.3-1
+- New version
+  Resolves: rhbz#1687208
+
+* Fri Mar  8 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.1-1
+- New version
+  Resolves: rhbz#1686673
+
+* Fri Mar  1 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.4.0-1
+- New version
+  Resolves: rhbz#1683855
+
+* Wed Feb 27 2019 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.3.3-1
+- New version
+  Resolves: rhbz#1683487
+
+* Sat Feb 02 2019 Fedora Release Engineering <releng@fedoraproject.org> - 2:3.3.1-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
+
+* Wed Jan 23 2019 Pete Walter <pwalter@fedoraproject.org> - 2:3.3.1-8
+- Rebuild for ICU 63
+
+* Mon Dec  3 2018 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.3.1-7
+- Fixed posttls-finger to work with unix domains
+
+* Mon Nov 19 2018 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.3.1-6
+- Used _prefix macro for /usr and _includedir macro for /usr/include
+
+* Mon Aug 20 2018 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.3.1-5
+- Added m4 to BuildRequires
+  Resolves: rhbz#1619111
+
+* Tue Jul 24 2018 Robert Scheck <robert@fedoraproject.org> - 2:3.3.1-4
+- Add basic postfix TLS configuration by default (#1608050)
+
+* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 2:3.3.1-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Tue Jul 10 2018 Pete Walter <pwalter@fedoraproject.org> - 2:3.3.1-2
+- Rebuild for ICU 62
+
+* Mon Jul  9 2018 Jaroslav Škarvada <jskarvad@redhat.com> - 2:3.3.1-1
+- New version
+  Resolves: rhbz#1548222
+- Updated libnsl2 library and header paths
+  Resolves: rhbz#1543928
+- Updated license for dual licensing
+
 * Fri Jun 1 2018 Massimiliano Torromeo <massimiliano.torromeo@gmail.com> - 2:3.2.5-6
 - Reworked for Epel 7 by reverting to glibc's nsl and mysql-devel
 
