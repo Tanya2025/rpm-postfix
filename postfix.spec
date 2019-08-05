@@ -74,10 +74,9 @@ Source5: postfix-chroot-update
 # Sources 50-99 are upstream [patch] contributions
 
 %define pflogsumm_ver 1.1.5
-%define pflogsumm_commit df23d8c12defbbcda8a1ffe7b292877b6bee47f3
 
 # Postfix Log Entry Summarizer: http://jimsun.linxnet.com/postfix_contrib.html
-Source53: https://github.com/KTamas/pflogsumm/archive/%{pflogsumm_commit}/pflogsumm-%{pflogsumm_ver}.tar.gz
+Source53: https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/pflogsumm/%{pflogsumm_ver}-1/pflogsumm_%{pflogsumm_ver}.orig.tar.gz
 
 # Sources >= 100 are config files
 
@@ -224,7 +223,7 @@ src/global/mail_params.h
 
 %if %{with pflogsumm}
 gzip -dc %{SOURCE53} | tar xf -
-pushd pflogsumm-%{pflogsumm_commit}
+pushd pflogsumm-%{pflogsumm_ver}
 %patch9 -p1 -b .datecalc
 %patch10 -p1 -b .ipv6-warnings-fix
 popd
@@ -394,9 +393,9 @@ find $RPM_BUILD_ROOT%{postfix_doc_dir} -type f | xargs chmod 644
 find $RPM_BUILD_ROOT%{postfix_doc_dir} -type d | xargs chmod 755
 
 %if %{with pflogsumm}
-install -c -m 644 pflogsumm-%{pflogsumm_commit}/pflogsumm-faq.txt $RPM_BUILD_ROOT%{postfix_doc_dir}/pflogsumm-faq.txt
-install -c -m 644 pflogsumm-%{pflogsumm_commit}/pflogsumm.1 $RPM_BUILD_ROOT%{_mandir}/man1/pflogsumm.1
-install -c pflogsumm-%{pflogsumm_commit}/pflogsumm.pl $RPM_BUILD_ROOT%{postfix_command_dir}/pflogsumm
+install -c -m 644 pflogsumm-%{pflogsumm_ver}/pflogsumm-faq.txt $RPM_BUILD_ROOT%{postfix_doc_dir}/pflogsumm-faq.txt
+install -c -m 644 pflogsumm-%{pflogsumm_ver}/pflogsumm.1 $RPM_BUILD_ROOT%{_mandir}/man1/pflogsumm.1
+install -c pflogsumm-%{pflogsumm_ver}/pflogsumm.pl $RPM_BUILD_ROOT%{postfix_command_dir}/pflogsumm
 %endif
 
 # install qshape
